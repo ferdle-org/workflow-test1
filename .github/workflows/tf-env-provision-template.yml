@@ -1,0 +1,35 @@
+name: 'Env Deployment Template'
+
+on:
+  pull_request:
+    types: [closed]
+    branches: env-provision-template
+  # workflow_dispatch:           
+
+#Special permissions required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pre-check-wf:
+    uses: ./.github/workflows/tf-pre-check.yml
+    with:
+        environment: env-provision-template
+  call-terraform-plan-wf:
+    uses: HARMAN-Auto/hctl-azure-workflow/.github/workflows/tf-plan.yml@main
+    with:
+      environment: env-provision-template
+      destroy: false
+    secrets: inherit
+    needs: [pre-check-wf]
+  call-terraform-apply-wf:
+    uses: HARMAN-Auto/hctl-azure-workflow/.github/workflows/tf-apply.yml@main
+    with:
+      environment: env-provision-template
+      destroy: false
+      tfPlanExitCode: ${{needs.call-terraform-plan-wf.outputs.tfplanExitCode}}
+    secrets: inherit
+    needs: [call-terraform-plan-wf]

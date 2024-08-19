@@ -1,4 +1,4 @@
-name: 'Env Deployment Template'
+name: 'Env Deployment Template 2'
 
 on:
   pull_request:

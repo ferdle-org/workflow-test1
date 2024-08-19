@@ -1,4 +1,4 @@
-name: 'Pre Check'
+name: 'Pre Check 2'
 
 on:
   workflow_call:

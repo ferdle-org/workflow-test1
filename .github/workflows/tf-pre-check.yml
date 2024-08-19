@@ -1,0 +1,87 @@
+name: 'Pre Check'
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to run workflow against'
+        type: string
+        required: true
+
+env:
+  # HCTL terraform cloud environment configuraiton branch name
+  VAR_CONFIG_BRANCH_NAME: "${{ vars.WF_CONFIG_BRANCH_NAME }}"
+
+  # Approver list
+  VAR_APPROVERS: ${{ vars.WF_APPROVERS }}
+
+jobs:
+  pre-check:
+    name: 'pre check'
+    runs-on:
+      group: DeployHub-Runners-Group
+    environment: ${{ inputs.environment }}
+    
+    steps:
+    # make sure that PR is merged
+    - name: PR check
+      id: pr_check
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" != "true" ]]; then
+          echo "The PR is not merged"
+          exit 1
+        fi
+
+    # make sure that target branch name of PR is as same as Github Action Env name
+    - name: environment name check
+      id: env_check
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "${{ inputs.environment }}" ]]; then
+          echo "status=0" >> $GITHUB_OUTPUT
+        else
+          echo "the target branch name of PR [${{ github.base_ref }}] is not same as Github Env name [${{ inputs.environment }}]" >> $GITHUB_STEP_SUMMARY
+          echo "status=1" >> $GITHUB_OUTPUT
+        fi
+
+    # make sure that target branch name of PR is as same as Github Action Env Config Branch Name
+    - name: config branch name check
+      id: cfg_branch_name_check
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "${{ env.VAR_CONFIG_BRANCH_NAME }}" ]]; then
+          echo "status=0" >> $GITHUB_OUTPUT
+        else
+          echo "the target branch name of PR [${{ github.base_ref }}] is not same as Github Env Config Branch Name value [${{ env.VAR_CONFIG_BRANCH_NAME }}]" >> $GITHUB_STEP_SUMMARY
+          echo "status=1" >> $GITHUB_OUTPUT
+        fi
+
+    # make sure it must have approver
+    - name: approver check
+      id: apporver_check
+      run: |
+        if [[ "${{ env.VAR_APPROVERS }}" ]]; then
+          echo "status=0" >> $GITHUB_OUTPUT
+        else
+          echo "There is no approver" >> $GITHUB_STEP_SUMMARY
+          echo "status=1" >> $GITHUB_OUTPUT
+        fi
+
+    # make sure it must have approver
+    - name: manual trigger check
+      id: manual_check
+      run: |
+        if [[ "${{ github.event_name }}" == "${{ inputs.environment }}" && "${{ env.VAR_CONFIG_BRANCH_NAME }}" == "${{ inputs.environment }}" ]]; then
+          echo "status=0" >> $GITHUB_OUTPUT
+        else
+          echo "The Github Action Environment name [${{ inputs.environment }}] is not same as Github Env Config Branch Name value [${{ env.VAR_CONFIG_BRANCH_NAME }}]" >> $GITHUB_STEP_SUMMARY
+          echo "status=1" >> $GITHUB_OUTPUT
+        fi        
+
+    # make sure it must have approver
+    - name: verify the validation
+      run: |
+        if [[ "${{ steps.env_check.outputs.status }}" == "0" && "${{ steps.cfg_branch_name_check.outputs.status }}" == "0" 
+          &&  "${{ steps.apporver_check.outputs.status }}" == "0" && "${{ steps.manual_check.outputs.status }}" == "0" ]]; then
+          exit 0
+        else
+          exit 1
+        fi
